@@ -1,0 +1,23 @@
+seed: 42
+
+# Use either data_root (single dataset) or data_roots (multiple datasets).
+# data_root: data/kvasir-seg
+data_roots:
+  - data/kvasir-seg
+  - data/CVC-ClinicDB
+  - data/CVC-300
+  - data/CVC-ColonDB
+  - data/ETIS-LaribPolypDB
+output_dir: outputs
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+
+img_size: 512
+batch_size: 4
+epochs: 30
+lr: 1.0e-4
+weight_decay: 1.0e-4
+num_workers: 4
