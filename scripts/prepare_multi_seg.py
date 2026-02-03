@@ -77,6 +77,23 @@ def main() -> None:
             continue
         prepare_dataset(zip_path, data_dir, name)
 
+    # Kvasir-SEG uses a different layout; reuse its dedicated prep if present.
+    kvasir_zip = data_dir / "kvasir-seg.zip"
+    kvasir_out = data_dir / "kvasir-seg"
+    if kvasir_zip.exists() and not kvasir_out.exists():
+        from pathlib import Path as _Path
+        import importlib.util
+
+        script_path = _Path(__file__).parent / "prepare_kvasir_seg.py"
+        if script_path.exists():
+            spec = importlib.util.spec_from_file_location("prepare_kvasir_seg", script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+            module.main = module.main  # keep lint calm
+            os.system(f"python {script_path} --zip {kvasir_zip} --out {kvasir_out}")
+        else:
+            print("skip: prepare_kvasir_seg.py not found")
+
 
 if __name__ == "__main__":
     main()
