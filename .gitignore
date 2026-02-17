@@ -10,3 +10,6 @@ slurm_train.sh
 .python-version
 venv/
 outputs_synapse/
+outputs_synapse_mfg0/
+outputs_synapse_mfg20/
+outputs_synapse_mfg50/
