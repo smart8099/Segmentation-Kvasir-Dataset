@@ -10,11 +10,26 @@ split:
 
 img_size: 512
 batch_size: 2
-epochs: 30
-lr: 1.0e-4
+epochs: 50
+lr: 5.0e-5
 weight_decay: 1.0e-4
 num_workers: 4
 
 num_classes: 14
 binarize_masks: false
 include_background_in_metric: false
+class_names:
+  - background
+  - spleen
+  - right_kidney
+  - left_kidney
+  - gallbladder
+  - esophagus
+  - liver
+  - stomach
+  - aorta
+  - inferior_vena_cava
+  - portal_splenic_vein
+  - pancreas
+  - right_adrenal
+  - left_adrenal

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import logging
 from pathlib import Path
 
 import torch
@@ -30,6 +32,23 @@ def load_split(output_dir: Path):
         with open(output_dir / f"{name}.json", "r") as f:
             return json.load(f)
     return _load("train"), _load("val"), _load("test")
+
+
+def setup_logger(log_path: Path) -> logging.Logger:
+    logger = logging.getLogger("seg_train")
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    fh = logging.FileHandler(log_path)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    return logger
 
 
 def compute_iou(
@@ -67,8 +86,12 @@ def main():
 
     cfg = load_config(Path(args.config))
     torch.manual_seed(cfg["seed"])
+    output_dir = Path(cfg["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logger = setup_logger(output_dir / "train.log")
+    logger.info("train_start config=%s", args.config)
 
-    split_dir = Path(cfg["output_dir"]) / "splits"
+    split_dir = output_dir / "splits"
     if (split_dir / "train.json").exists():
         train_items, val_items, _ = load_split(split_dir)
     else:
@@ -97,6 +120,13 @@ def main():
     num_classes = int(cfg.get("num_classes", 2))
     include_background = bool(cfg.get("include_background_in_metric", False))
     binarize_masks = bool(cfg.get("binarize_masks", num_classes <= 2))
+    logger.info(
+        "train_setup train_samples=%d val_samples=%d num_classes=%d binarize_masks=%s",
+        len(train_items),
+        len(val_items),
+        num_classes,
+        binarize_masks,
+    )
 
     train_ds = SegmentationDataset(
         train_items, img_size=cfg["img_size"], binarize_masks=binarize_masks
@@ -128,8 +158,10 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
 
     best_iou = 0.0
-    output_dir = Path(cfg["output_dir"])
-    output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_csv = output_dir / "metrics.csv"
+    with open(metrics_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "val_iou", "is_best"])
 
     for epoch in range(cfg["epochs"]):
         model.train()
@@ -162,16 +194,28 @@ def main():
                 count += 1
         mean_iou = iou_total / max(count, 1)
 
+        is_best = False
         if mean_iou > best_iou:
             best_iou = mean_iou
             torch.save(model.state_dict(), output_dir / "best.pth")
+            is_best = True
 
-        print(
-            f"epoch={epoch+1} train_loss={running/ max(len(train_loader),1):.4f} "
-            f"val_iou={mean_iou:.4f}"
-        )
+        epoch_loss = running / max(len(train_loader), 1)
+        line = f"epoch={epoch+1} train_loss={epoch_loss:.4f} val_iou={mean_iou:.4f}"
+        print(line)
+        logger.info("%s%s", line, " [best]" if is_best else "")
+        with open(metrics_csv, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([epoch + 1, f"{epoch_loss:.6f}", f"{mean_iou:.6f}", int(is_best)])
 
     torch.save(model.state_dict(), output_dir / "last.pth")
+    logger.info(
+        "train_done best_val_iou=%.4f best_ckpt=%s last_ckpt=%s metrics_csv=%s",
+        best_iou,
+        output_dir / "best.pth",
+        output_dir / "last.pth",
+        metrics_csv,
+        )
 
 
 if __name__ == "__main__":

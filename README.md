@@ -48,6 +48,9 @@ For Synapse:
 ```
 python src/train.py --config configs/synapse_las.yaml
 ```
+Training logs are written to:
+- `outputs_synapse/train.log`
+- `outputs_synapse/metrics.csv`
 
 ## Eval
 ```
@@ -58,6 +61,10 @@ For Synapse:
 ```
 python src/eval.py --config configs/synapse_las.yaml --weights outputs_synapse/best.pth
 ```
+Evaluation writes:
+- console `test_iou` + `per_class_iou`
+- `outputs_synapse/eval.log`
+- `outputs_synapse/eval_metrics.json`
 
 ## Slurm (GPU cluster)
 Use `slurm_train.sh` as a template. Update `REPO_DIR` and the zip filename before submitting.
