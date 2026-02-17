@@ -24,13 +24,32 @@ def load_split(output_dir: Path):
     return _load("train"), _load("val"), _load("test")
 
 
-def compute_iou(preds: torch.Tensor, targets: torch.Tensor) -> float:
+def compute_iou(
+    preds: torch.Tensor,
+    targets: torch.Tensor,
+    num_classes: int,
+    include_background: bool = False,
+) -> float:
     preds = preds.argmax(dim=1)
-    preds = (preds > 0).long()
-    targets = (targets > 0).long()
-    intersection = (preds & targets).sum().item()
-    union = (preds | targets).sum().item()
-    return intersection / max(union, 1)
+
+    if num_classes <= 2:
+        preds = (preds > 0).long()
+        targets = (targets > 0).long()
+        intersection = (preds & targets).sum().item()
+        union = (preds | targets).sum().item()
+        return intersection / max(union, 1)
+
+    start_class = 0 if include_background else 1
+    ious = []
+    for class_id in range(start_class, num_classes):
+        pred_mask = preds == class_id
+        target_mask = targets == class_id
+        union = (pred_mask | target_mask).sum().item()
+        if union == 0:
+            continue
+        intersection = (pred_mask & target_mask).sum().item()
+        ious.append(intersection / union)
+    return float(sum(ious) / max(len(ious), 1))
 
 
 def main():
@@ -43,7 +62,13 @@ def main():
     split_dir = Path(cfg["output_dir"]) / "splits"
     _, _, test_items = load_split(split_dir)
 
-    test_ds = SegmentationDataset(test_items, img_size=cfg["img_size"])
+    num_classes = int(cfg.get("num_classes", 2))
+    include_background = bool(cfg.get("include_background_in_metric", False))
+    binarize_masks = bool(cfg.get("binarize_masks", num_classes <= 2))
+
+    test_ds = SegmentationDataset(
+        test_items, img_size=cfg["img_size"], binarize_masks=binarize_masks
+    )
     test_loader = DataLoader(
         test_ds,
         batch_size=cfg["batch_size"],
@@ -53,7 +78,7 @@ def main():
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = models.segmentation.fcn_resnet50(weights=None, num_classes=2)
+    model = models.segmentation.fcn_resnet50(weights=None, num_classes=num_classes)
     model.load_state_dict(torch.load(args.weights, map_location=device))
     model = model.to(device)
     model.eval()
@@ -65,7 +90,12 @@ def main():
             images = images.to(device)
             masks = masks.to(device)
             outputs = model(images)["out"]
-            iou_total += compute_iou(outputs, masks)
+            iou_total += compute_iou(
+                outputs,
+                masks,
+                num_classes=num_classes,
+                include_background=include_background,
+            )
             count += 1
     mean_iou = iou_total / max(count, 1)
     print(f"test_iou={mean_iou:.4f}")

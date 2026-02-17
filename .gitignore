@@ -9,3 +9,4 @@ logs/
 slurm_train.sh
 .python-version
 venv/
+outputs_synapse/

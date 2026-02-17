@@ -93,9 +93,10 @@ def random_split(pairs: List[Tuple[str, str]], seed: int, split: dict) -> SplitF
 
 
 class SegmentationDataset:
-    def __init__(self, items: List[Tuple[str, str]], img_size: int):
+    def __init__(self, items: List[Tuple[str, str]], img_size: int, binarize_masks: bool = True):
         self.items = items
         self.img_size = img_size
+        self.binarize_masks = binarize_masks
 
     def __len__(self) -> int:
         return len(self.items)
@@ -110,7 +111,10 @@ class SegmentationDataset:
 
         image = F.to_tensor(image)
         mask = F.pil_to_tensor(mask).squeeze(0)
-        mask = (mask > 0).long()
+        if self.binarize_masks:
+            mask = (mask > 0).long()
+        else:
+            mask = mask.long()
 
         return image, mask
 

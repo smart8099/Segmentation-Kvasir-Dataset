@@ -22,6 +22,18 @@ You can batch-prepare common polyp datasets with:
 python scripts/prepare_multi_seg.py --data-dir data
 ```
 
+### Synapse (LAS) -> 2D segmentation slices
+For Synapse, preprocess `.nii.gz` volumes into 2D PNG `images/` + `masks/` with case-level splits:
+```
+python scripts/prepare_synapse_seg.py \
+  --synapse-root /Users/abdulbasit/Documents/phd_lifetime/endo_agent_project/DATASET_Synapse \
+  --task Task002_Synapse \
+  --out-root data/synapse_seg \
+  --split-out outputs_synapse/splits \
+  --axis axial
+```
+This keeps LAS orientation (no canonical reorientation), preserves class IDs `0..13` in masks, and avoids patient leakage by splitting at case level.
+
 ## Split
 ```
 python src/split.py --config configs/default.yaml
@@ -32,9 +44,19 @@ python src/split.py --config configs/default.yaml
 python src/train.py --config configs/default.yaml
 ```
 
+For Synapse:
+```
+python src/train.py --config configs/synapse_las.yaml
+```
+
 ## Eval
 ```
 python src/eval.py --config configs/default.yaml --weights outputs/best.pth
+```
+
+For Synapse:
+```
+python src/eval.py --config configs/synapse_las.yaml --weights outputs_synapse/best.pth
 ```
 
 ## Slurm (GPU cluster)
