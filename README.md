@@ -51,7 +51,6 @@ python src/train.py --config configs/synapse_las.yaml
 Training logs are written to:
 - `outputs_synapse/train.log`
 - `outputs_synapse/metrics.csv`
-`configs/synapse_las.yaml` now enables class-weighted CE + Dice loss and foreground-aware sampling for small-organ improvement.
 
 ## Eval
 ```
